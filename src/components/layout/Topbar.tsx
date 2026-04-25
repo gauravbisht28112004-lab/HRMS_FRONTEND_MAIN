@@ -2,7 +2,7 @@ import { Bell, BotMessageSquare, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/Button';
-import { getInitials } from '@/utils/format';
+import { Avatar } from '@/components/common/Avatar';
 import { StatusBadge } from '@/components/common/StatusBadge';
 
 export const Topbar = () => {
@@ -30,15 +30,13 @@ export const Topbar = () => {
           <Bell size={18} />
         </button>
 
-        <Button variant="ghost" className="gap-2" onClick={logout}>
+        <Button variant="ghost" className="gap-2" onClick={() => void logout()}>
           <LogOut size={16} />
           Logout
         </Button>
 
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-700 font-semibold text-white">
-            {getInitials(user.name)}
-          </div>
+          <Avatar name={user.name} src={user.avatarUrl} size="md" />
           <div className="hidden md:block">
             <p className="text-sm font-medium text-slate-900">{user.name}</p>
             <p className="text-xs text-slate-500">{user.email}</p>

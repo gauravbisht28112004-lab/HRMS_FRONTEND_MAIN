@@ -415,4 +415,17 @@ export const goalProgressEntries: GoalProgress[] = [
     monthlyTotal: 20,
     lastUpdated: '2026-04-07 12:15',
   },
+  {
+    employeeId: 'EMP-1003',
+    dailyCommitment: 'Process employee onboarding and maintain HR records.',
+    weeklyTarget: 'Complete 5 employee interviews and onboarding sessions.',
+    monthlyTarget: 'Reduce new hire processing time by 25%.',
+    dailyCompleted: 2,
+    weeklyCompleted: 4,
+    monthlyCompleted: 12,
+    dailyTotal: 3,
+    weeklyTotal: 5,
+    monthlyTotal: 15,
+    lastUpdated: '2026-04-14 09:00',
+  },
 ];

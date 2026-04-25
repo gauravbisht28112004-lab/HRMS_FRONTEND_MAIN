@@ -6,13 +6,16 @@ import {
   CalendarDays,
   ClipboardList,
   Clock3,
+  FileCheck2,
   History,
   LayoutDashboard,
   LucideIcon,
   LogOut,
+  MapPin,
   PlaneTakeoff,
   Target,
   Trophy,
+  UploadCloud,
   UserRound,
   Users,
   Wallet,
@@ -29,12 +32,16 @@ const iconMap: Record<string, LucideIcon> = {
   Users,
   Clock3,
   CalendarClock,
+  CalendarDays,
   PlaneTakeoff,
   Wallet,
   Building2,
   BarChart3,
   Trophy,
   History,
+  UploadCloud,
+  FileCheck2,
+  MapPin,
 };
 
 export const Sidebar = () => {
@@ -46,6 +53,7 @@ export const Sidebar = () => {
     const employeeItems = [
       { label: 'Dashboard', path: '/', icon: LayoutDashboard },
       { label: 'Attendance', path: '/attendance', icon: CalendarDays },
+      { label: 'Regularizations', path: '/regularizations', icon: FileCheck2 },
       { label: 'Leave Management', path: '/leave', icon: PlaneTakeoff },
       { label: 'Daily Commitment', path: '/daily-commitment', icon: Target },
       { label: 'Hourly Updates', path: '/hourly-updates', icon: Clock3 },
@@ -100,7 +108,7 @@ export const Sidebar = () => {
         </nav>
 
         <button
-          onClick={logout}
+          onClick={() => void logout()}
           className="mt-4 flex items-center gap-3 rounded-xl border border-[#f3ddd1] bg-[#fff6f2] px-3 py-2.5 text-sm text-[#cf7e64] transition hover:bg-[#fff1ea]"
         >
           <LogOut size={16} />
@@ -115,6 +123,7 @@ export const Sidebar = () => {
       { label: 'Dashboard', path: '/', icon: LayoutDashboard },
       { label: 'Team Members', path: '/employees', icon: Users },
       { label: 'Team Attendance', path: '/attendance', icon: CalendarDays },
+      { label: 'Regularizations', path: '/regularizations', icon: FileCheck2 },
       { label: 'Leave', path: '/leave', icon: PlaneTakeoff },
       { label: 'Daily Commitment', path: '/team-daily-commitment', icon: Target },
       { label: 'Monthly Commitment', path: '/team-monthly-commitment', icon: BarChart3 },
@@ -169,7 +178,7 @@ export const Sidebar = () => {
         </nav>
 
         <button
-          onClick={logout}
+          onClick={() => void logout()}
           className="mt-4 flex items-center gap-3 rounded-xl border border-[#f3ddd1] bg-[#fff6f2] px-3 py-2.5 text-sm text-[#cf7e64] transition hover:bg-[#fff1ea]"
         >
           <LogOut size={16} />

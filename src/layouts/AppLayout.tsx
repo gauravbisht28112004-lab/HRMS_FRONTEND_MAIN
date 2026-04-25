@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { AssistantPanel } from '@/features/assistant/components/AssistantPanel';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { PasswordChangeWarningModal } from '@/components/security/PasswordChangeWarningModal';
 
 export const AppLayout = () => (
   <div className="flex min-h-screen">
@@ -13,5 +14,8 @@ export const AppLayout = () => (
       </main>
     </div>
     <AssistantPanel />
+    {/* One-time nag when the user is still on the default password.
+        Self-dismisses after acknowledgement; no effect once rotated. */}
+    <PasswordChangeWarningModal />
   </div>
 );

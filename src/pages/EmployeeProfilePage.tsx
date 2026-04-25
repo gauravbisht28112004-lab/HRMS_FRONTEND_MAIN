@@ -1,24 +1,35 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/api';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/common/PageHeader';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { AvatarUpload } from '@/components/common/AvatarUpload';
 import { AuditTimeline } from '@/features/audit/components/AuditTimeline';
 import { auditLogs } from '@/constants/mockData';
 import { useAuthStore } from '@/store/authStore';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { createEmployeeFormValuesFromEmployee, mapEmployeeFormToRequest } from '@/services/requestMappers';
+import { SalarySnapshotCard } from '@/features/employee/components/SalarySnapshotCard';
+import { UserAccessCard } from '@/features/employee/components/UserAccessCard';
+import { ShiftAssignmentCard } from '@/features/shifts/components/ShiftAssignmentCard';
 
 export const EmployeeProfilePage = () => {
   const { employeeId = '' } = useParams();
-  const { user, markSelfServiceEditUsed } = useAuthStore();
+  const { user, markSelfServiceEditUsed, setAvatarUrl } = useAuthStore();
+  const queryClient = useQueryClient();
   const resolvedEmployeeId = employeeId || user?.employeeId || '';
   const { data: employee } = useQuery({
     queryKey: ['employee', resolvedEmployeeId],
-    queryFn: () => api.employees.getById(resolvedEmployeeId),
+    queryFn: () => (/^\d+$/.test(resolvedEmployeeId) ? api.employees.getById(resolvedEmployeeId) : api.employees.getByEmployeeId(resolvedEmployeeId)),
     enabled: Boolean(resolvedEmployeeId),
+  });
+  const { data: employeeDetails } = useQuery({
+    queryKey: ['employee-profile-details', employee?.backendId],
+    queryFn: () => api.employees.getDetails(employee!.backendId!),
+    enabled: Boolean(employee?.backendId),
   });
   const [form, setForm] = useState({
     email: '',
@@ -32,6 +43,36 @@ export const EmployeeProfilePage = () => {
   const canUseSelfServiceEdit = Boolean(isSelfProfile && user && !user.hasUsedSelfServiceEdit);
   const canHrEdit = user?.role === 'HR' || user?.role === 'Admin';
   const isAllowedTeamLeaderView = user?.role !== 'Team Leader' || employee?.teamLeader === user.name;
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async () => {
+      if (!employee?.backendId) {
+        throw new Error('Missing backend employee id.');
+      }
+
+      const baseForm = createEmployeeFormValuesFromEmployee(employee, employeeDetails);
+      const [emergencyContactName = '', emergencyContactPhone = ''] = form.emergencyContact.split(' - ');
+
+      const payload = mapEmployeeFormToRequest({
+        ...baseForm,
+        email: form.email,
+        phone: form.phone,
+        address: form.address,
+        emergencyContactName: emergencyContactName.trim(),
+        emergencyContactPhone: emergencyContactPhone.trim(),
+        bankAccountNumber: form.bankDetails,
+      });
+
+      await api.employees.update(employee.backendId, payload);
+    },
+    onSuccess: async () => {
+      markSelfServiceEditUsed();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['employee', resolvedEmployeeId] }),
+        queryClient.invalidateQueries({ queryKey: ['employee-profile-details', employee?.backendId] }),
+      ]);
+    },
+  });
 
   useEffect(() => {
     if (!employee) return;
@@ -52,12 +93,9 @@ export const EmployeeProfilePage = () => {
     return <div className="text-sm text-slate-500">Access restricted to your own team members.</div>;
   }
 
-  const handleSelfServiceSubmit = (event: FormEvent) => {
+  const handleSelfServiceSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    markSelfServiceEditUsed();
-    window.alert(
-      `Employee self-service update submitted once. Replace with API mutation and backend enforcement:\n${JSON.stringify(form, null, 2)}`,
-    );
+    await updateProfileMutation.mutateAsync();
   };
 
   return (
@@ -70,6 +108,39 @@ export const EmployeeProfilePage = () => {
             : 'Employee profile, compliance details, and recent audit activity.'
         }
       />
+
+      <Card>
+        <div className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-700">Profile Picture</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {isSelfProfile
+                ? 'This is how you appear across the portal. Upload a clear, front-facing photo.'
+                : canHrEdit
+                  ? 'Update the employee’s profile picture. Changes are visible immediately across the portal.'
+                  : 'Profile picture shown across the portal.'}
+            </p>
+          </div>
+          <AvatarUpload
+            employeeCode={employee.id}
+            name={`${employee.firstName} ${employee.lastName}`}
+            currentUrl={employee.profilePicture}
+            editable={isSelfProfile || canHrEdit}
+            onChange={(newUrl) => {
+              // Refresh the cached employee payload so the photo updates on
+              // this page and in the employees list. Also mirror the change
+              // into the auth store when the signed-in user is editing their
+              // own avatar so the Topbar refreshes instantly.
+              void queryClient.invalidateQueries({ queryKey: ['employee', resolvedEmployeeId] });
+              void queryClient.invalidateQueries({ queryKey: ['employees'] });
+              if (isSelfProfile) {
+                setAvatarUrl(newUrl);
+              }
+            }}
+          />
+        </div>
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <div className="grid gap-4 md:grid-cols-2">
@@ -160,13 +231,19 @@ export const EmployeeProfilePage = () => {
                   ? 'Submitting this will lock further self-edits for the employee account.'
                   : 'Your one-time self-edit has already been used. Please contact HR for further changes.'}
               </p>
-              <Button type="submit" disabled={!canUseSelfServiceEdit}>
-                Save My Details
+              <Button type="submit" disabled={!canUseSelfServiceEdit || updateProfileMutation.isPending}>
+                {updateProfileMutation.isPending ? 'Saving...' : 'Save My Details'}
               </Button>
             </div>
           </form>
         </Card>
       ) : null}
+
+      {canHrEdit ? <SalarySnapshotCard employeeBackendId={employee.backendId} /> : null}
+
+      {canHrEdit ? <ShiftAssignmentCard employeeBackendId={employee.backendId} /> : null}
+
+      {canHrEdit ? <UserAccessCard employeeCode={employee.id} /> : null}
 
       {canHrEdit ? (
         <Card>

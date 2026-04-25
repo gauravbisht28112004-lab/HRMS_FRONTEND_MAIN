@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { AuditTimeline } from '@/features/audit/components/AuditTimeline';
 import { FilterBar } from '@/components/common/FilterBar';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Input } from '@/components/ui/Input';
-import { api } from '@/services/api';
+import { auditLogs } from '@/constants/mockData';
 
 export const AuditLogsPage = () => {
-  const { data = [] } = useQuery({ queryKey: ['audit-logs'], queryFn: api.audit.list });
   const [query, setQuery] = useState('');
 
-  const filtered = data.filter(
+  const filtered = auditLogs.filter(
     (log) =>
       log.user.toLowerCase().includes(query.toLowerCase()) ||
       log.action.toLowerCase().includes(query.toLowerCase()) ||

@@ -4,24 +4,33 @@ import { Building2, Eye, EyeOff, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { useAuthStore } from '@/store/authStore';
-import { UserRole } from '@/types';
 
 export const LoginPage = () => {
-  const { isAuthenticated, loginAsRole } = useAuthStore();
-  const [role, setRole] = useState<UserRole>('HR');
-  const [email, setEmail] = useState('ishita.rao@finbud.com');
-  const [password, setPassword] = useState('password');
+  const { isAuthenticated, isInitializing, login, user } = useAuthStore();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
-  if (isAuthenticated) {
+  if (!isInitializing && isAuthenticated) {
+    // Password rotation is now advisory — a one-time warning modal
+    // (PasswordChangeWarningModal) tells admin-provisioned users to
+    // rotate, but they can dismiss it and continue. Everyone lands on
+    // the dashboard directly.
+    void user; // kept for future role-based landing logic
     return <Navigate to="/" replace />;
   }
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    loginAsRole(role);
+    setError('');
+
+    try {
+      await login({ username, password });
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : 'Unable to sign in. Please try again.');
+    }
   };
 
   return (
@@ -70,34 +79,11 @@ export const LoginPage = () => {
           <div>
             <p className="text-sm text-brand-700">Login Dashboard</p>
             <h2 className="mt-2 text-3xl font-semibold text-slate-900">Sign in to HRMS</h2>
-            <p className="mt-2 text-sm text-slate-500">Demo login for role-based dashboards.</p>
+            <p className="mt-2 text-sm text-slate-500">Use your backend username and password to access the live workspace.</p>
           </div>
 
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-            <Select
-              label="Login as"
-              value={role}
-              onChange={(event) => {
-                const selectedRole = event.target.value as UserRole;
-                setRole(selectedRole);
-                const nextEmail =
-                  selectedRole === 'Admin'
-                    ? 'admin@finbud.com'
-                    : selectedRole === 'Team Leader'
-                      ? 'rohan.mehta@finbud.com'
-                      : selectedRole === 'Employee'
-                        ? 'aanya.sharma@finbud.com'
-                        : 'ishita.rao@finbud.com';
-                setEmail(nextEmail);
-              }}
-              options={[
-                { label: 'HR', value: 'HR' },
-                { label: 'Admin', value: 'Admin' },
-                { label: 'Team Leader', value: 'Team Leader' },
-                { label: 'Employee', value: 'Employee' },
-              ]}
-            />
-            <Input label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <Input label="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
               <span>Password</span>
               <div className="relative">
@@ -117,8 +103,9 @@ export const LoginPage = () => {
                 </button>
               </div>
             </label>
-            <Button type="submit" className="w-full">
-              Continue
+            {error ? <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+            <Button type="submit" className="w-full" disabled={isInitializing}>
+              {isInitializing ? 'Checking session...' : 'Continue'}
             </Button>
           </form>
         </Card>

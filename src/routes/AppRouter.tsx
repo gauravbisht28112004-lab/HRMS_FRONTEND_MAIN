@@ -4,12 +4,22 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
+const ForceChangePasswordPage = lazy(() =>
+  import('@/pages/ForceChangePasswordPage').then((module) => ({ default: module.ForceChangePasswordPage })),
+);
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const EmployeesPage = lazy(() => import('@/pages/EmployeesPage').then((module) => ({ default: module.EmployeesPage })));
 const EmployeeProfilePage = lazy(() =>
   import('@/pages/EmployeeProfilePage').then((module) => ({ default: module.EmployeeProfilePage })),
 );
 const AttendancePage = lazy(() => import('@/pages/AttendancePage').then((module) => ({ default: module.AttendancePage })));
+const RegularizationsPage = lazy(() =>
+  import('@/pages/RegularizationsPage').then((module) => ({ default: module.RegularizationsPage })),
+);
+const OfficeLocationsPage = lazy(() =>
+  import('@/pages/OfficeLocationsPage').then((module) => ({ default: module.OfficeLocationsPage })),
+);
+const HolidaysPage = lazy(() => import('@/pages/HolidaysPage').then((module) => ({ default: module.HolidaysPage })));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((module) => ({ default: module.ReportsPage })));
 const ShiftsPage = lazy(() => import('@/pages/ShiftsPage').then((module) => ({ default: module.ShiftsPage })));
 const PayrollPage = lazy(() => import('@/pages/PayrollPage').then((module) => ({ default: module.PayrollPage })));
@@ -17,6 +27,9 @@ const DepartmentsPage = lazy(() =>
   import('@/pages/DepartmentsPage').then((module) => ({ default: module.DepartmentsPage })),
 );
 const AuditLogsPage = lazy(() => import('@/pages/AuditLogsPage').then((module) => ({ default: module.AuditLogsPage })));
+const AdminImportPage = lazy(() =>
+  import('@/pages/AdminImportPage').then((module) => ({ default: module.AdminImportPage })),
+);
 const LeavePage = lazy(() => import('@/pages/LeavePage').then((module) => ({ default: module.LeavePage })));
 const EmployeeDailyCommitmentPage = lazy(() =>
   import('@/pages/EmployeeDailyCommitmentPage').then((module) => ({ default: module.EmployeeDailyCommitmentPage })),
@@ -49,6 +62,20 @@ export const AppRouter = () => (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
+      {/* Dedicated force-change-password slot. The gate lets users through
+          even with `mustChangePassword=true`; the page itself redirects
+          everyone else away. */}
+      <Route
+        element={
+          <ProtectedRoute
+            roles={['Admin', 'HR', 'Team Leader', 'Employee']}
+            allowWhileMustChangePassword
+          />
+        }
+      >
+        <Route path="/force-change-password" element={<ForceChangePasswordPage />} />
+      </Route>
+
       <Route element={<ProtectedRoute roles={['Admin', 'HR', 'Team Leader', 'Employee']} />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
@@ -61,6 +88,7 @@ export const AppRouter = () => (
 
           <Route element={<ProtectedRoute roles={['Admin', 'HR', 'Team Leader', 'Employee']} />}>
             <Route path="/attendance" element={<AttendancePage />} />
+            <Route path="/regularizations" element={<RegularizationsPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Route>
 
@@ -70,6 +98,9 @@ export const AppRouter = () => (
             <Route path="/departments" element={<DepartmentsPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/admin/import" element={<AdminImportPage />} />
+            <Route path="/office-locations" element={<OfficeLocationsPage />} />
+            <Route path="/holidays" element={<HolidaysPage />} />
           </Route>
 
           <Route path="/leave" element={<LeavePage />} />
