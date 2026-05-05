@@ -1,28 +1,31 @@
-import { Activity, IndianRupee, Megaphone, Users } from 'lucide-react';
+import { IndianRupee, Megaphone, UserCheck, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DataTable } from '@/components/common/DataTable';
 import { PageHeader } from '@/components/common/PageHeader';
 import { StatsCard } from '@/components/common/StatsCard';
 import { Card } from '@/components/ui/Card';
-import { announcements, performanceMetrics } from '@/constants/mockData';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { api } from '@/services/api';
 import { formatCurrency } from '@/utils/format';
+import type { Announcement } from '@/types';
 import { AnnouncementBoard } from './AnnouncementBoard';
 
 /**
- * Admin home dashboard. Headcount + payroll KPIs come from
- * `/api/dashboard/stats`. The performance metrics table and announcement
- * board still source from local state / mock data — those have their own
- * follow-up tasks (analytics rollup + announcements API).
+ * Admin home dashboard. Every tile and table is now backed by a real API:
+ *   - Active Employees / Present Today  -> /api/dashboard/stats
+ *   - Live Announcements                 -> /api/announcements (active)
+ *   - Monthly Target                     -> /api/system-config/org-monthly-goal
+ *   - Department distribution table      -> /api/dashboard/stats.departmentStats
  *
- * <p>The org-wide monthly goal tile is now backed by `system_config` via
- * `api.systemConfig.getOrgMonthlyGoal` / `setOrgMonthlyGoal` (Q5, V13).
  * The "Publish Monthly Target" form below calls the Admin-only PUT and
  * invalidates the query so every other dashboard reading the same value
  * refreshes on next focus.
+ *
+ * Productivity / quality / disbursal scoring per employee was previously
+ * shown here from a mock array; that's been removed pending a proper
+ * analytics rollup endpoint on the backend.
  */
 export const AdminDashboard = () => {
   const queryClient = useQueryClient();
@@ -55,13 +58,24 @@ export const AdminDashboard = () => {
     staleTime: 30_000,
   });
 
+  // Same query key the AnnouncementBoard uses, so we share the cache —
+  // we don't double-fetch when both components mount on the same page.
+  const { data: liveAnnouncements = [] } = useQuery<Announcement[]>({
+    queryKey: ['announcements-active'],
+    queryFn: () => api.announcements.listActive(),
+    staleTime: 30_000,
+  });
+
   const fmt = (n?: number) => (isLoading ? '—' : String(n ?? 0));
   const activeEmployees = stats?.activeEmployees ?? 0;
   const totalEmployees = stats?.totalEmployees ?? 0;
   const newThisMonth = stats?.newEmployeesThisMonth ?? 0;
-  const submittedReports = performanceMetrics.filter(
-    (item) => item.dailyReportingStatus === 'Submitted',
-  ).length;
+  const presentToday = stats?.presentToday ?? 0;
+  const departmentStats = stats?.departmentStats ?? [];
+  const totalDepartmentEmployees = departmentStats.reduce(
+    (sum, dept) => sum + (dept.employeeCount ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -90,7 +104,7 @@ export const AdminDashboard = () => {
         />
         <StatsCard
           label="Live Announcements"
-          value={String(announcements.length)}
+          value={String(liveAnnouncements.length)}
           meta="Visible across dashboards"
           icon={<Megaphone size={22} />}
         />
@@ -101,26 +115,56 @@ export const AdminDashboard = () => {
           icon={<IndianRupee size={22} />}
         />
         <StatsCard
-          label="Daily Reports"
-          value={`${submittedReports}/${performanceMetrics.length}`}
-          meta="Submission compliance today"
-          icon={<Activity size={22} />}
+          label="Present Today"
+          value={fmt(presentToday)}
+          meta={
+            isLoading
+              ? 'Loading…'
+              : totalEmployees > 0
+                ? `${Math.round((presentToday / totalEmployees) * 100)}% of ${totalEmployees} on rolls`
+                : 'No employees on rolls'
+          }
+          icon={<UserCheck size={22} />}
         />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <DataTable
-          data={performanceMetrics}
-          columns={[
-            { key: 'employee', header: 'Employee', render: (item) => item.employeeName },
-            { key: 'teamLeader', header: 'Team Leader', render: (item) => item.teamLeader },
-            { key: 'prod', header: 'Productivity', render: (item) => `${item.productivityScore}%` },
-            { key: 'quality', header: 'Quality', render: (item) => `${item.qualityScore}%` },
-            { key: 'attendance', header: 'Attendance', render: (item) => `${item.attendanceScore}%` },
-            { key: 'disbursal', header: 'Disbursal', render: (item) => formatCurrency(item.disbursalAmount) },
-            { key: 'month', header: 'Month Target', render: (item) => `${item.monthCompletion}%` },
-          ]}
-        />
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Department Distribution</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Headcount by department. Numbers refresh every 30 seconds.
+              </p>
+            </div>
+            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+              {totalDepartmentEmployees} total
+            </span>
+          </div>
+          <div className="mt-5">
+            {isLoading ? (
+              <p className="text-sm text-slate-500">Loading department data…</p>
+            ) : departmentStats.length === 0 ? (
+              <p className="text-sm text-slate-500">No department data available yet.</p>
+            ) : (
+              <DataTable
+                data={departmentStats}
+                columns={[
+                  { key: 'department', header: 'Department', render: (item) => item.departmentName },
+                  { key: 'count', header: 'Employees', render: (item) => String(item.employeeCount) },
+                  {
+                    key: 'share',
+                    header: '% of Total',
+                    render: (item) =>
+                      totalDepartmentEmployees > 0
+                        ? `${((item.employeeCount / totalDepartmentEmployees) * 100).toFixed(1)}%`
+                        : '0%',
+                  },
+                ]}
+              />
+            )}
+          </div>
+        </Card>
 
         <Card>
           <h3 className="text-lg font-semibold text-slate-900">Admin Monthly Target Control</h3>

@@ -1347,6 +1347,39 @@ export const api = {
       const response = unwrapResponse<BackendDepartmentResponse>(await http.post('/departments', payload));
       return toDepartment(response);
     },
+    /**
+     * Edit an existing department's name / code / description / manager.
+     * Backend route: PUT /departments/{id} — gated to ADMIN/HR.
+     *
+     * Note: the backend's DepartmentRequest accepts a managerId field, but
+     * for changing only the team leader prefer the dedicated assignManager
+     * endpoint below — it has clearer audit semantics.
+     */
+    update: async (id: number, payload: Record<string, unknown>): Promise<Department> => {
+      const response = unwrapResponse<BackendDepartmentResponse>(await http.put(`/departments/${id}`, payload));
+      return toDepartment(response);
+    },
+    /**
+     * Reassign the team leader of a department.
+     * Backend route: POST /departments/{departmentId}/manager/{managerId}.
+     * The backend re-derives the response so the new managerName comes
+     * back in the same payload — no extra fetch needed.
+     */
+    assignManager: async (departmentId: number, managerId: number): Promise<Department> => {
+      const response = unwrapResponse<BackendDepartmentResponse>(
+        await http.post(`/departments/${departmentId}/manager/${managerId}`),
+      );
+      return toDepartment(response);
+    },
+    /**
+     * Hard-delete a department.
+     * Backend route: DELETE /departments/{id}. Returns 200 with `data: null`.
+     * Will fail with a 4xx if the department still has employees — surface
+     * that error to the caller so the UI can show "Move employees first".
+     */
+    remove: async (id: number): Promise<void> => {
+      unwrapResponse<null>(await http.delete(`/departments/${id}`));
+    },
   },
   dashboard: {
     /**
